@@ -4,6 +4,8 @@ MANIFEST
 README
 LICENSE
 Changes
-t/main.t
-t/list
+t/nbr.t
+t/nbr.list
+t/str.t
+t/str.list
 testit

@@ -58,7 +58,6 @@
 #   composite numbers
 
 1000	= one thousand
-a 1000	= a thousand
 1000	= 1 thousand
 1001	= thousand one
 2001	= two thousand one
@@ -133,8 +132,3 @@ a 1000	= a thousand
 1e+100	    = googol
 2e+101	    = score of googoles
 1e+303		= centillion
-gazillion	= gazillion
-
-#   free text
-
-no number here = no numbers here

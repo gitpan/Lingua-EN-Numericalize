@@ -11,7 +11,7 @@ package Lingua::EN::Numericalize;
 require Exporter;
 our @ISA = qw/Exporter/;
 our @EXPORT = qw/&str2nbr/;
-our $VERSION = substr q$Revision: 1.5 $, 10;
+our $VERSION = substr q$Revision: 1.52 $, 10;
 
 local $\ = $/;
 our $debug = 0;
@@ -20,7 +20,7 @@ our $UK = 0;
 =head1 SYNOPSIS
 
  use Lingua::EN::Numericalize;
- print str2nbr("one thounsand maniacs");
+ print str2nbr("one thousand maniacs");
 
  $_ = "six hundred three-score and six";
  str2nbr();
@@ -139,7 +139,7 @@ sub word2num {
     for $w (compound($w)) {
         my $o = $w;
         for (keys %suffix) {
-            my ($m) = $w =~ /(.*)$_$/;
+            my ($m) = $w =~ /(.*)$_$/; $m ||= "";
             $w = $suffix{$_}->($word2num{$m}), last
                 if $word2num{$m};
             }
@@ -175,9 +175,9 @@ our %abb = (
     );
 
 our %strrep = (
-    'milion' => "million",                  # common mispelling
-    '(\d)\s*,\s*(\d)' => q/"$1$2"/,         # commas in numbers ok to remove
-	q/baker('?s)?(\s+)?dozen/ => "baker",   # colloquialism
+    'milion' => q/"million"/,                # common mispelling
+    '(\d)\s*,\s*(\d)' => q/"$1$2"/,          # commas in numbers ok to remove
+	q/baker('?s)?(\s+)?dozen/ => q/"baker"/, # colloquialism
     '(\d)(st|nd|rd|th)' => q/"$1"/,
     );
 
@@ -243,7 +243,7 @@ our %word2num = (
 	hundred     => 100,
 	thousand    => 1000,
 
-    m => 1,     # nillion/milliard
+    m => 1,     # million/milliard
     b => 2,     # billion
     
 	googol      => 10 ** 100,
@@ -282,6 +282,8 @@ While it handles googol correctly, googolplex is too large to fit in perl's stan
 
 =item B<3)> spelled out number e.g. nine one one = 911 (not 11: 9+1+1)
 
+=item B<4)> C<runnin'> => C<r9> - yikes!
+
 =back
 
 Any suggestions are welcome.
@@ -300,12 +302,12 @@ For help and thank you notes, e-mail the author directly.  To report a bug, subm
 
 =head1 AVAILABILITY
 
-The latest version of the tarball, RPM and SRPM may always be found at: F<http://perl.arix.com/>
+The latest version of the tarball, RPM and SRPM may always be found at: F<http://perl.arix.com/>  Additionally the module is available from CPAN.
 
 =head1 LICENCE AND COPYRIGHT
 
 This utility is free and distributed under GPL, the Gnu Public License.  A copy of this license was included in a file called LICENSE. If for some reason, this file was not included, please see F<http://www.gnu.org/licenses/> to obtain a copy of this license.
 
-$Id: Numericalize.pm,v 1.5 2003/02/15 00:28:48 ekkis Exp $
+$Id: Numericalize.pm,v 1.52 2003/02/17 23:51:40 ekkis Exp $
 
 =cut
