@@ -11,7 +11,7 @@ package Lingua::EN::Numericalize;
 require Exporter;
 our @ISA = qw/Exporter/;
 our @EXPORT = qw/&str2nbr/;
-our $VERSION = substr q$Revision: 1.3 $, 10;
+our $VERSION = substr q$Revision: 1.5 $, 10;
 
 local $\ = $/;
 our $debug = 0;
@@ -58,8 +58,7 @@ sub str2nbr {
     my @ret;
     for (split /\b/, $s) {
         push(@ret, $_), next if /^\d+$/;
-        push(@ret, $_), next if /[^A-Za-z]/;
-
+        push(@ret, $_), next if /[^a-zA-Z0-9]/;
         push(@ret, word2num());
         }
 
@@ -70,9 +69,16 @@ sub str2nbr {
         $ret[$i] = [ $ret[$i] ], $n = 1 if isnbr($ret[$i]);
         if (ref($ret[$i])) {
             my $next = $ret[$i + 1];
-            push @{$ret[$i]}, $next if isnbr($next);
-            splice(@ret, $i + 1, 1), next
-                if isnbr($next) || isconj($next);
+            if (isnbr($next)) {
+                push @{$ret[$i]}, $next;
+                splice(@ret, $i + 1, 1);
+                next;
+                }
+            my $nexxt = $ret[$i + 2];
+            if (isconj($next) && (isnbr($nexxt) || isconj($nexxt))) {
+                splice(@ret, $i + 1, 1);
+                next;
+                }
             }
         $i++;
         }
@@ -96,14 +102,82 @@ If set to true, the module outputs on standard error messages useful for debuggi
 
 =cut
 
-# conjunctions are valid separators for text numbers
+sub isnbr {
+    ! /^([+-]?)(?=\d|\.\d)\d*(\.\d*)?([Ee]([+-]?\d+))?$/ && return for @_;
+    return 1;
+    }
+
+sub isconj {
+    my $w = shift || $_;
+    $w =~ /$_/ && return 1 for @conj;
+    }
+    
+# splits "fourtytwo", "onehundred", etc.
+
+sub compound {
+    my $w = shift || $_ || return;
+    
+    $w =~ s/(\d)$_$/$1$abb{$_}/ for keys %abb;
+
+    my @ret; my @w2n = keys %word2num;
+    for (my $i = 0; $i < @w2n; $i++) {
+        push(@ret, $word2num{$w2n[$i]}), $i = 0
+            if $w =~ s/$w2n[$i]$//;
+        last unless $w;
+        }
+    push @ret, $w if $w;
+    reverse @ret;
+    }
+
+sub word2num {
+    my $w = shift || $_ || return;
+
+    $w =~ s/$_/$tokrep{$_}/g
+        for keys %tokrep;
+
+    my @ret;
+    for $w (compound($w)) {
+        my $o = $w;
+        for (keys %suffix) {
+            my ($m) = $w =~ /(.*)$_$/;
+            $w = $suffix{$_}->($word2num{$m}), last
+                if $word2num{$m};
+            }
+        push @ret, $w;
+        }
+
+    @ret;
+    }
+
+sub seq2int {
+    my @seq = @_;
+    print "seq2int(): ", join "-", @seq if $debug;
+    my ($i, $max) = (0) x 2;
+    ($max < $seq[$_]) && ($max = $seq[$_], $i = $_) for 0 .. $#seq;
+    if ($i == 0) {
+        my $ret = 0;
+        $ret += $_ for @seq;
+        return $ret;
+        }
+    $seq[$i] * seq2int(@seq[0 .. $i - 1]) + seq2int(@seq[$i + 1 .. $#seq]);
+    }
+
+#   conjunctions are valid separators for text numbers
 
 our @conj = ('and', 'of', '\s+', '-', ',');
 
+#   abbreviations
+
+our %abb = (
+    k => "0" x 3,
+    m => "0" x 6,
+    b => "0" x ($UK ? 12 : 9),
+    );
+
 our %strrep = (
-    'milion' => "million",              # common mispelling
-    '(\d)\s*,\s*(\d)' => q/"$1$2"/,     # commas in numbers ok to remove
-	q/baker('?s)?(\s+)?dozen/ => "baker",  # colloquialism
+    'milion' => "million",                  # common mispelling
+    '(\d)\s*,\s*(\d)' => q/"$1$2"/,         # commas in numbers ok to remove
+	q/baker('?s)?(\s+)?dozen/ => "baker",   # colloquialism
     '(\d)(st|nd|rd|th)' => q/"$1"/,
     );
 
@@ -156,7 +230,7 @@ our %word2num = (
 	one         => 1,
 	two         => 2,
 	three       => 3,   thir    => 3,
-	four        => 4,
+	four        => 4,   for     => 4,
 	five        => 5,   fif     => 5,
 	six         => 6,
 	seven       => 7,
@@ -184,83 +258,29 @@ our %word2num = (
 
 %word2num = (%word2num, %latin);
 
-sub isnbr {
-    ! /^([+-]?)(?=\d|\.\d)\d*(\.\d*)?([Ee]([+-]?\d+))?$/ && return for @_;
-    return 1;
-    }
-
-sub isconj {
-    my $w = shift || $_;
-    $w =~ /$_/ && return 1 for @conj;
-    }
-    
-sub compound {
-    my $w = shift || $_;
-    
-    my $ret = 0;
-    for (keys %word2num) {
-        $ret += $word2num{$_}, last if $w =~ s/$_$//;
-        }
-    return $ret, $w unless $ret && $w;
-
-    my @ret = compound($w);
-    $ret[0] += $ret;
-    @ret;
-    }
-
-sub word2num {
-    my $o = shift || $_;
-    my $w = $o;
-
-    $w =~ s/$_/$tokrep{$_}/g for keys %tokrep;
-
-    # compounds e.g. fourtytwo
-
-    my $ret; ($ret, $w) = compound($w);
-    return $ret unless $w;
-
-    for (keys %suffix) {
-        next unless $w =~ s/$_$//;
-        next unless defined $word2num{$w};
-        my $f = $suffix{$_};
-        return $f->($word2num{$w}) + $ret;
-        }
-
-    $o;
-    }
-
-sub seq2int {
-    my @seq = @_;
-    print "seq2int(): ", join "-", @seq if $debug;
-    my ($i, $max) = (0) x 2;
-    ($max < $seq[$_]) && ($max = $seq[$_], $i = $_) for 0 .. $#seq;
-    if ($i == 0) {
-        my $ret = 0;
-        $ret += $_ for @seq;
-        return $ret;
-        }
-    $seq[$i] * seq2int(@seq[0 .. $i - 1]) + seq2int(@seq[$i + 1 .. $#seq]);
-    }
-
 1;
 
 __END__
 
 =head1 NOTES
 
-Scores are supported, e.g. "four score and ten", so are dozens, baker's dozens and grosses.
+Scores are supported, e.g. "three score and six", so are dozens, baker's dozens and grosses.
 
-Various mispellings of numbers are understood.
+Cardinal numbers become ordinal i.e. second => 2, 13th => 13.
+
+Various mispellings are understood, as are plurals, "illions" (e.g. million, billion, etc.), and "illiards" (e.g. milliard, billiard, etc.) in addition to suffixes e.g. 1k => 1000, 2M, 3B.  Extended hundreds are also supported e.g. twelve hundred = one thousand two hundred = 1200.
 
 While it handles googol correctly, googolplex is too large to fit in perl's standard scalar type, and "inf" will be returned.
 
-=head1 TODO
+=head1 TODO/BUGS
 
 =over
 
-=item B<1)> would be nice to handle fractions
+=item B<1)> currently chops off plurals and other suffixes from words that are not numbers.  This needs to be fixed since C<no words here> produces C<no word here> and C<hell hath no fury> to C<hell ha no fury>.
 
-=item B<2)> spelled out number e.g. nine one one = 911 (not 11: 9+1+1)
+=item B<2)> would be nice to handle fractions
+
+=item B<3)> spelled out number e.g. nine one one = 911 (not 11: 9+1+1)
 
 =back
 
@@ -286,6 +306,6 @@ The latest version of the tarball, RPM and SRPM may always be found at: F<http:/
 
 This utility is free and distributed under GPL, the Gnu Public License.  A copy of this license was included in a file called LICENSE. If for some reason, this file was not included, please see F<http://www.gnu.org/licenses/> to obtain a copy of this license.
 
-$Id: Numericalize.pm,v 1.3 2003/02/04 03:07:48 ekkis Exp $
+$Id: Numericalize.pm,v 1.5 2003/02/15 00:28:48 ekkis Exp $
 
 =cut

@@ -2,6 +2,8 @@ Numericalize.pm
 Makefile.PL
 MANIFEST
 README
+LICENSE
+Changes
 t/main.t
 t/list
 testit
